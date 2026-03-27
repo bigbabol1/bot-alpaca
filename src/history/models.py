@@ -139,7 +139,7 @@ class AIDecision:
 
 @dataclass
 class Trade:
-    decision_id: int
+    decision_id: int | None  # None for Alpaca orders reconciled without a DB decision
     ticker: str
     side: str               # buy | sell
     qty: float

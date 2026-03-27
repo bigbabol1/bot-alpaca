@@ -269,7 +269,7 @@ class TradeExecutor:
         """
         On startup: compare Alpaca open orders to DB trades table.
         Sync any gaps (orders unknown to DB, or DB-open orders gone from Alpaca).
-        Wrapped in BEGIN EXCLUSIVE to prevent race conditions.
+        Uses BEGIN EXCLUSIVE to block concurrent reads during initial query phase.
         """
         log.info("reconciliation_start")
         try:
@@ -285,7 +285,7 @@ class TradeExecutor:
             for order in alpaca_orders:
                 if str(order.id) not in db_ids:
                     t = Trade(
-                        decision_id=0,
+                        decision_id=None,
                         alpaca_order_id=str(order.id),
                         ticker=str(order.symbol),
                         side=str(order.side).lower(),
