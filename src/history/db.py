@@ -145,7 +145,7 @@ async def insert_news_item(conn: aiosqlite.Connection, item: NewsItem) -> int:
             row,
         ) as cur:
             await conn.commit()
-            return cur.lastrowid or 0
+            return cur.lastrowid if cur.rowcount else 0
 
 
 async def mark_news_forwarded(conn: aiosqlite.Connection, news_ids: list[int]) -> None:

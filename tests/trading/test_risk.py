@@ -10,9 +10,32 @@ Non-negotiable before any live trading:
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 
 from src.trading.risk import PROFILES, RiskEngine, _blocked
+
+
+async def _seed_closed_trades(conn, count: int = 51) -> None:
+    """Insert `count` closed trades so Kelly activates (threshold=50).
+    Uses raw SQL to avoid FK constraint on decision_id (NULL is allowed in schema)."""
+    from src.history.db import _wlock
+    now = datetime.now(timezone.utc).isoformat()
+    for i in range(count):
+        pnl = 4.0 if i % 2 == 0 else -3.0
+        exit_price = 104.0 if i % 2 == 0 else 97.0
+        async with _wlock():
+            await conn.execute(
+                """INSERT INTO trades
+                   (decision_id, ticker, side, qty, entry_price, stop_loss, take_profit,
+                    exit_price, status, pnl, pnl_pct, opened_at, closed_at)
+                   VALUES (NULL, 'AAPL', 'buy', 1.0, 100.0, 97.0, 106.0,
+                           ?, 'closed', ?, ?, ?, ?)""",
+                (exit_price, pnl, pnl / 100.0, now, now),
+            )
+            await conn.commit()
+
 
 
 # ── Kelly formula ─────────────────────────────────────────────────────────────
@@ -136,19 +159,21 @@ async def test_conservative_position_cap(tmp_db):
 
 
 async def test_moderate_position_cap(tmp_db):
-    """Moderate profile caps at 2%."""
+    """Moderate profile caps at 2% once Kelly is active (>50 closed trades)."""
+    await _seed_closed_trades(tmp_db, count=51)
     engine = RiskEngine("moderate")
     result = await engine.compute_sizing(
         conn=tmp_db,
         equity=10000.0,
         entry_price=100.0,
         atr=2.0,
-        ai_confidence=0.7,   # above moderate min (0.65)
+        ai_confidence=0.99,  # very high confidence → Kelly output exceeds 2%, profile caps it
         ai_position_pct=0.10,
         open_positions_count=0,
         daily_loss_pct=0.0,
     )
     assert result.position_pct == 0.02
+    assert result.sizing_method == "kelly"
 
 
 # ── Confidence gate ────────────────────────────────────────────────────────────
