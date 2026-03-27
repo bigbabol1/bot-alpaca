@@ -268,8 +268,6 @@ class TradeExecutor:
         """
         log.info("reconciliation_start")
         try:
-            async with self._conn.execute("BEGIN EXCLUSIVE"):
-                pass
             await self._conn.execute("BEGIN EXCLUSIVE")
 
             alpaca_orders = await self._alpaca.get_open_orders()

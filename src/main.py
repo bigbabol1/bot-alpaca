@@ -29,7 +29,6 @@ from pathlib import Path
 import structlog
 import yaml
 
-from src.ai.decision import AIDecision as DBDecision
 from src.ai.ollama_client import OllamaClient
 from src.ai.prompts import build_context_prompt
 from src.config import Settings, get_settings
@@ -44,7 +43,7 @@ from src.news.filter import NewsFilter, assemble_batches
 from src.news.rss_feed import RSSFeedAggregator
 from src.news.sentiment import passes_threshold, score_sentiment
 from src.trading.alpaca_client import AlpacaWrapper
-from src.trading.executor import TradeExecutor
+from src.trading.executor import TradeExecutor, _is_crypto
 from src.trading.market_data import MarketDataCache
 from src.trading.risk import PROFILES, RiskEngine
 import pandas_market_calendars as mcal
@@ -88,10 +87,6 @@ def _market_is_open() -> bool:
     open_t = schedule.iloc[0]["market_open"].to_pydatetime()
     close_t = schedule.iloc[0]["market_close"].to_pydatetime()
     return open_t <= now <= close_t
-
-
-def _is_crypto(ticker: str) -> bool:
-    return "/" in ticker or ticker.endswith("USD")
 
 
 # ── Watchlist loading ──────────────────────────────────────────────────────────
