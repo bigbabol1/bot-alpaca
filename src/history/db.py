@@ -198,8 +198,8 @@ async def update_trade(conn: aiosqlite.Connection, trade: Trade) -> None:
     row["id"] = trade.id
     await conn.execute(
         """UPDATE trades SET
-           alpaca_order_id=:alpaca_order_id, status=:status, exit_price=:exit_price,
-           pnl=:pnl, pnl_pct=:pnl_pct, closed_at=:closed_at, qty=:qty
+           alpaca_order_id=:alpaca_order_id, status=:status, entry_price=:entry_price,
+           exit_price=:exit_price, pnl=:pnl, pnl_pct=:pnl_pct, closed_at=:closed_at, qty=:qty
            WHERE id=:id""",
         row,
     )

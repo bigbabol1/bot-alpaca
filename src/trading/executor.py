@@ -28,8 +28,9 @@ from src.trading.risk import SizingResult
 
 log = structlog.get_logger(__name__)
 
-_FILL_POLL_INTERVAL = 10   # seconds between fill status polls
-_FILL_POLL_TIMEOUT = 60    # max seconds to wait for fill
+_FILL_POLL_INTERVAL = 10       # seconds between fill status polls (equity)
+_FILL_POLL_INTERVAL_CRYPTO = 1 # shorter first-poll for crypto (fills in <1s)
+_FILL_POLL_TIMEOUT = 60        # max seconds to wait for fill
 _CRYPTO_MAX_POSITION_PCT = 0.005  # 0.5% of portfolio per crypto trade
 _CRYPTO_HARD_STOP_PCT = 0.01      # 1% hard stop loss for crypto
 
@@ -167,8 +168,8 @@ class TradeExecutor:
         trade_id = await db_ops.insert_trade(self._conn, trade)
         trade.id = trade_id
 
-        # Poll for fill, then submit stop-limit
-        filled_trade = await self._poll_fill(trade)
+        # Poll for fill with short initial delay (crypto fills in <1s)
+        filled_trade = await self._poll_fill(trade, first_poll_delay=_FILL_POLL_INTERVAL_CRYPTO)
         if filled_trade and filled_trade.status == "open" and filled_trade.entry_price > 0:
             await self._submit_crypto_stop(filled_trade)
 
@@ -192,20 +193,24 @@ class TradeExecutor:
             # Fail-safe: immediately exit with market order
             log.warning("crypto_stop_fail_safe_market_exit", ticker=trade.ticker)
             try:
-                await self._alpaca.submit_market_order(trade.ticker, trade.qty, "sell")
+                exit_side = "buy" if trade.side == "sell" else "sell"
+                await self._alpaca.submit_market_order(trade.ticker, trade.qty, exit_side)
             except Exception as inner_exc:  # noqa: BLE001
                 log.error("crypto_market_exit_failed", ticker=trade.ticker, error=str(inner_exc))
 
     # ── Fill polling ───────────────────────────────────────────────────────────
 
-    async def _poll_fill(self, trade: Trade) -> Trade:
+    async def _poll_fill(self, trade: Trade, first_poll_delay: float = _FILL_POLL_INTERVAL) -> Trade:
         """
         Poll Alpaca for fill status every 10s for up to 60s.
         Updates the DB trade record on each status change.
+        Pass first_poll_delay=_FILL_POLL_INTERVAL_CRYPTO for crypto (fills in <1s).
         """
         deadline = time.monotonic() + _FILL_POLL_TIMEOUT
+        delay = first_poll_delay
         while time.monotonic() < deadline:
-            await asyncio.sleep(_FILL_POLL_INTERVAL)
+            await asyncio.sleep(delay)
+            delay = _FILL_POLL_INTERVAL  # subsequent polls use standard interval
             try:
                 order = await self._alpaca.get_order(trade.alpaca_order_id)
                 status = str(order.status).lower()

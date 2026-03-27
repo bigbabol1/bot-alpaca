@@ -39,7 +39,7 @@ from src.history.models import AIDecision, PortfolioSnapshot
 from src.monitoring.metrics import DailyMetricsJob
 from src.monitoring.telegram import TelegramAlerter
 from src.news.alpaca_news import AlpacaNewsStream
-from src.news.filter import NewsFilter, assemble_batches
+from src.news.filter import NewsFilter
 from src.news.rss_feed import RSSFeedAggregator
 from src.news.sentiment import passes_threshold, score_sentiment
 from src.trading.alpaca_client import AlpacaWrapper

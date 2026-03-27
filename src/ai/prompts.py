@@ -76,8 +76,12 @@ def build_context_prompt(
         indent=2,
     )
 
-    positions_json = json.dumps(ctx.positions, indent=2)
-    decisions_json = json.dumps(ctx.recent_decisions, indent=2)
+    # Sanitize string fields from external sources before embedding in prompt
+    def _san_dict(d: dict) -> dict:
+        return {k: _sanitize(v) if isinstance(v, str) else v for k, v in d.items()}
+
+    positions_json = json.dumps([_san_dict(p) for p in ctx.positions], indent=2)
+    decisions_json = json.dumps([_san_dict(d) for d in ctx.recent_decisions], indent=2)
 
     return f"""PORTFOLIO STATE:
 - Equity: ${ctx.equity:,.2f}
