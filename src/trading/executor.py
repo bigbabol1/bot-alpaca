@@ -269,11 +269,10 @@ class TradeExecutor:
         """
         On startup: compare Alpaca open orders to DB trades table.
         Sync any gaps (orders unknown to DB, or DB-open orders gone from Alpaca).
-        Uses BEGIN EXCLUSIVE to block concurrent reads during initial query phase.
+        Write serialization is handled by _wlock() inside insert_trade/update_trade.
         """
         log.info("reconciliation_start")
         try:
-            await self._conn.execute("BEGIN EXCLUSIVE")
 
             alpaca_orders = await self._alpaca.get_open_orders()
             alpaca_ids = {str(o.id) for o in alpaca_orders}

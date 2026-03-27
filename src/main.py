@@ -579,8 +579,11 @@ async def main() -> None:
             settings=settings,
             params=params,
         ),
-        return_exceptions=True,
     )
+    # Note: return_exceptions intentionally removed — any task crash propagates
+    # to run(), which logs the error and exits. A process supervisor (systemd,
+    # docker restart=always) should restart the bot. Swallowing crashes here
+    # would leave the bot running with silent broken state.
 
 
 def run() -> None:
