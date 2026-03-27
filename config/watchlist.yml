@@ -1,0 +1,58 @@
+# Curated watchlist — auto-remove if avg 20-day volume < $10M (runs daily)
+# Manual additions via quarterly review only (no auto-add in v1)
+
+equities:
+  # Magnificent 7
+  - AAPL
+  - MSFT
+  - NVDA
+  - GOOGL
+  - AMZN
+  - META
+  - TSLA
+
+  # Sector ETFs
+  - SPY
+  - QQQ
+  - XLF
+  - XLE
+  - XLK
+  - GLD
+  - TLT
+
+  # Top S&P by volume (sample — expand quarterly)
+  - JPM
+  - BAC
+  - XOM
+  - JNJ
+  - V
+  - UNH
+  - WMT
+  - HD
+  - PG
+  - COST
+  - ABBV
+  - MRK
+  - CVX
+  - LLY
+  - AVGO
+  - NFLX
+  - CRM
+  - AMD
+  - ORCL
+  - INTC
+
+crypto:
+  - BTC/USD
+  - ETH/USD
+  - SOL/USD
+
+# Macro news ticker mapping
+# News without a ticker → map to these symbols
+macro_mappings:
+  fed: [SPY, TLT, GLD]
+  inflation: [SPY, TLT, GLD]
+  gdp: [SPY, TLT]
+  rates: [SPY, TLT, XLF]
+  energy: [XLE]
+  oil: [XLE]

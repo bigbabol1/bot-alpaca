@@ -1,0 +1,43 @@
+# Alpaca
+alpaca-py>=0.38.0
+
+# Ollama (OpenAI-compatible API)
+openai>=1.0.0
+
+# Async SQLite
+aiosqlite>=0.20.0
+
+# Config / validation
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# Async HTTP
+aiohttp>=3.9.0
+
+# RSS parsing
+feedparser>=6.0.0
+
+# Structured logging
+structlog>=24.0.0
+
+# Numerical / TA
+numpy>=1.26.0
+pandas>=2.0.0
+ta>=0.11.0
+
+# Market calendar (NYSE hours gate)
+pandas-market-calendars>=4.3.0
+
+# FinBERT sentiment (CPU inference in container)
+transformers>=4.40.0
+torch>=2.2.0
+
+# Config hot-reload watcher
+watchdog>=4.0.0
+
+# Health check / dashboard
+fastapi>=0.110.0
+uvicorn>=0.27.0
+
+# HTTP client (used by health check test)
+requests>=2.31.0
