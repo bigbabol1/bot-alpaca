@@ -149,7 +149,8 @@ class RiskEngine:
         # 4. Position sizing
         await self._update_kelly_state(conn)
         if self._kelly_enabled and not self._kelly_guard_active:
-            raw_pct = self._kelly_size(ai_confidence, ai_position_pct)
+            b = await self._get_historical_b(conn)
+            raw_pct = self._kelly_size(ai_confidence, b)
             method = "kelly"
         else:
             raw_pct = 0.01   # fixed 1% fallback
@@ -225,6 +226,21 @@ class RiskEngine:
                 log.info("kelly_guard_lifted", sharpe=round(sharpe, 2), ok_days=self._sharpe_ok_days)
             elif not self._kelly_guard_active:
                 self._sharpe_ok_days = 0
+
+    async def _get_historical_b(self, conn: aiosqlite.Connection) -> float:
+        """
+        Derive the Kelly win/loss ratio (b) from recent closed trades.
+        b = mean_winning_pnl / mean_losing_pnl (absolute values).
+        Falls back to 2.0 if insufficient data.
+        """
+        trades = await get_closed_trades(conn, limit=50)
+        winners = [t.pnl for t in trades if t.pnl is not None and t.pnl > 0]
+        losers = [abs(t.pnl) for t in trades if t.pnl is not None and t.pnl < 0]
+        if not winners or not losers:
+            return 2.0   # default until enough trade history
+        b = (sum(winners) / len(winners)) / (sum(losers) / len(losers))
+        log.debug("kelly_b_computed", b=round(b, 3), winners=len(winners), losers=len(losers))
+        return max(b, 0.1)   # guard against division artifacts
 
     @staticmethod
     def _kelly_size(win_prob: float, avg_win_loss_ratio: float) -> float:

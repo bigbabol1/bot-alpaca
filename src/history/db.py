@@ -2,9 +2,14 @@
 Async SQLite interface with WAL mode, migrations, and typed accessors.
 
 WAL mode is enabled on every new connection (required for concurrent writers).
+
+Write serialization: all write operations acquire _WRITE_LOCK to prevent
+interleaved commits when multiple async tasks share a single connection.
+Reads do not acquire the lock (WAL mode supports concurrent readers).
 """
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import aiosqlite
@@ -13,6 +18,17 @@ import structlog
 from src.history.models import AIDecision, NewsItem, PortfolioSnapshot, Trade
 
 log = structlog.get_logger(__name__)
+
+# Serializes all write operations on the shared connection.
+# Created lazily to avoid event-loop issues at import time.
+_write_lock: asyncio.Lock | None = None
+
+
+def _wlock() -> asyncio.Lock:
+    global _write_lock
+    if _write_lock is None:
+        _write_lock = asyncio.Lock()
+    return _write_lock
 
 _SCHEMA = """
 PRAGMA journal_mode=WAL;
@@ -121,42 +137,45 @@ async def init_db(db_path: Path) -> aiosqlite.Connection:
 
 async def insert_news_item(conn: aiosqlite.Connection, item: NewsItem) -> int:
     row = item.to_db_row()
-    async with conn.execute(
-        """INSERT OR IGNORE INTO news_items
-           (headline, summary, author, source, url, symbols, sentiment, relevance, received_at, forwarded)
-           VALUES (:headline, :summary, :author, :source, :url, :symbols, :sentiment, :relevance, :received_at, :forwarded)""",
-        row,
-    ) as cur:
-        await conn.commit()
-        return cur.lastrowid or 0
+    async with _wlock():
+        async with conn.execute(
+            """INSERT OR IGNORE INTO news_items
+               (headline, summary, author, source, url, symbols, sentiment, relevance, received_at, forwarded)
+               VALUES (:headline, :summary, :author, :source, :url, :symbols, :sentiment, :relevance, :received_at, :forwarded)""",
+            row,
+        ) as cur:
+            await conn.commit()
+            return cur.lastrowid or 0
 
 
 async def mark_news_forwarded(conn: aiosqlite.Connection, news_ids: list[int]) -> None:
     if not news_ids:
         return
-    await conn.execute(
-        f"UPDATE news_items SET forwarded=1 WHERE id IN ({','.join('?' * len(news_ids))})",
-        news_ids,
-    )
-    await conn.commit()
+    async with _wlock():
+        await conn.execute(
+            f"UPDATE news_items SET forwarded=1 WHERE id IN ({','.join('?' * len(news_ids))})",
+            news_ids,
+        )
+        await conn.commit()
 
 
 # ── AI Decisions ───────────────────────────────────────────────────────────────
 
 async def insert_ai_decision(conn: aiosqlite.Connection, decision: AIDecision) -> int:
     row = decision.to_db_row()
-    async with conn.execute(
-        """INSERT INTO ai_decisions
-           (news_item_ids, model, action, ticker, confidence, position_pct,
-            stop_loss_pct, take_profit_pct, hold_period, reasoning,
-            risk_factors, literature_ref, risk_profile, created_at)
-           VALUES (:news_item_ids, :model, :action, :ticker, :confidence, :position_pct,
-                   :stop_loss_pct, :take_profit_pct, :hold_period, :reasoning,
-                   :risk_factors, :literature_ref, :risk_profile, :created_at)""",
-        row,
-    ) as cur:
-        await conn.commit()
-        return cur.lastrowid or 0
+    async with _wlock():
+        async with conn.execute(
+            """INSERT INTO ai_decisions
+               (news_item_ids, model, action, ticker, confidence, position_pct,
+                stop_loss_pct, take_profit_pct, hold_period, reasoning,
+                risk_factors, literature_ref, risk_profile, created_at)
+               VALUES (:news_item_ids, :model, :action, :ticker, :confidence, :position_pct,
+                       :stop_loss_pct, :take_profit_pct, :hold_period, :reasoning,
+                       :risk_factors, :literature_ref, :risk_profile, :created_at)""",
+            row,
+        ) as cur:
+            await conn.commit()
+            return cur.lastrowid or 0
 
 
 async def get_recent_decisions(
@@ -181,29 +200,31 @@ async def count_closed_trades(conn: aiosqlite.Connection) -> int:
 
 async def insert_trade(conn: aiosqlite.Connection, trade: Trade) -> int:
     row = trade.to_db_row()
-    async with conn.execute(
-        """INSERT INTO trades
-           (decision_id, alpaca_order_id, ticker, side, qty, entry_price,
-            stop_loss, take_profit, exit_price, status, pnl, pnl_pct, opened_at, closed_at)
-           VALUES (:decision_id, :alpaca_order_id, :ticker, :side, :qty, :entry_price,
-                   :stop_loss, :take_profit, :exit_price, :status, :pnl, :pnl_pct, :opened_at, :closed_at)""",
-        row,
-    ) as cur:
-        await conn.commit()
-        return cur.lastrowid or 0
+    async with _wlock():
+        async with conn.execute(
+            """INSERT INTO trades
+               (decision_id, alpaca_order_id, ticker, side, qty, entry_price,
+                stop_loss, take_profit, exit_price, status, pnl, pnl_pct, opened_at, closed_at)
+               VALUES (:decision_id, :alpaca_order_id, :ticker, :side, :qty, :entry_price,
+                       :stop_loss, :take_profit, :exit_price, :status, :pnl, :pnl_pct, :opened_at, :closed_at)""",
+            row,
+        ) as cur:
+            await conn.commit()
+            return cur.lastrowid or 0
 
 
 async def update_trade(conn: aiosqlite.Connection, trade: Trade) -> None:
     row = trade.to_db_row()
     row["id"] = trade.id
-    await conn.execute(
-        """UPDATE trades SET
-           alpaca_order_id=:alpaca_order_id, status=:status, entry_price=:entry_price,
-           exit_price=:exit_price, pnl=:pnl, pnl_pct=:pnl_pct, closed_at=:closed_at, qty=:qty
-           WHERE id=:id""",
-        row,
-    )
-    await conn.commit()
+    async with _wlock():
+        await conn.execute(
+            """UPDATE trades SET
+               alpaca_order_id=:alpaca_order_id, status=:status, entry_price=:entry_price,
+               exit_price=:exit_price, pnl=:pnl, pnl_pct=:pnl_pct, closed_at=:closed_at, qty=:qty
+               WHERE id=:id""",
+            row,
+        )
+        await conn.commit()
 
 
 async def get_open_trades(conn: aiosqlite.Connection) -> list[Trade]:
@@ -241,14 +262,15 @@ async def insert_portfolio_snapshot(
     conn: aiosqlite.Connection, snapshot: PortfolioSnapshot
 ) -> int:
     row = snapshot.to_db_row()
-    async with conn.execute(
-        """INSERT INTO portfolio_snapshots
-           (equity, cash, positions, daily_pnl, daily_pnl_pct, snapped_at)
-           VALUES (:equity, :cash, :positions, :daily_pnl, :daily_pnl_pct, :snapped_at)""",
-        row,
-    ) as cur:
-        await conn.commit()
-        return cur.lastrowid or 0
+    async with _wlock():
+        async with conn.execute(
+            """INSERT INTO portfolio_snapshots
+               (equity, cash, positions, daily_pnl, daily_pnl_pct, snapped_at)
+               VALUES (:equity, :cash, :positions, :daily_pnl, :daily_pnl_pct, :snapped_at)""",
+            row,
+        ) as cur:
+            await conn.commit()
+            return cur.lastrowid or 0
 
 
 async def get_latest_snapshot(

@@ -389,16 +389,36 @@ async def process_news_loop(
 
 # ── Health check endpoint ──────────────────────────────────────────────────────
 
+def _client_ip(request) -> str:
+    """
+    Resolve the real client IP, honouring proxy headers.
+    Checks X-Real-IP then X-Forwarded-For first (set by nginx/Caddy/Traefik),
+    falling back to the raw TCP connection address.
+    """
+    real_ip = request.headers.get("X-Real-IP", "").strip()
+    if real_ip:
+        return real_ip
+    forwarded_for = request.headers.get("X-Forwarded-For", "").strip()
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.client.host if request.client else ""
+
+
 def _build_app(state: dict, settings: Settings):
     from fastapi import FastAPI, Request, Response
     app = FastAPI(title="Alpaca Bot Health")
 
+    allowed = settings.allowed_ip_list
+    if not allowed:
+        log.warning(
+            "dashboard_no_ip_allowlist",
+            message="ALLOWED_IPS is empty — dashboard is accessible from any host",
+        )
+
     @app.middleware("http")
     async def ip_filter(request: Request, call_next):
-        allowed = settings.allowed_ip_list
         if allowed:
-            client_ip = request.client.host if request.client else ""
-            if client_ip not in allowed:
+            if _client_ip(request) not in allowed:
                 return Response(status_code=403, content="Forbidden")
         return await call_next(request)
 
@@ -417,11 +437,7 @@ def _build_app(state: dict, settings: Settings):
 
     @app.post("/risk-profile/{profile}")
     async def set_risk_profile(profile: str, request: Request):
-        allowed = settings.allowed_ip_list
-        if allowed:
-            client_ip = request.client.host if request.client else ""
-            if client_ip not in allowed:
-                return Response(status_code=403)
+        # IP check already enforced by middleware; this is belt-and-suspenders
         if profile not in PROFILES:
             return Response(status_code=400, content=f"Unknown profile: {profile}")
         # Write to trading_params.yml — hot-reload watcher will pick it up
@@ -491,6 +507,13 @@ async def main() -> None:
 
     # ── Startup reconciliation ─────────────────────────────────────────────────
     await executor.reconcile_open_orders()
+
+    # ── Seed opening equity for day-1 daily loss calculation ───────────────────
+    # If no snapshot exists yet, take one now so prev_equity is never 0.
+    existing_snap = await db_ops.get_latest_snapshot(conn)
+    if not existing_snap:
+        await _snap_portfolio(alpaca, conn, prev_equity=0.0)
+        log.info("startup_equity_snapshot_taken")
 
     # ── Queues ─────────────────────────────────────────────────────────────────
     news_queue: asyncio.Queue = asyncio.Queue(maxsize=200)

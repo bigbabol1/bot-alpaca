@@ -15,7 +15,7 @@ import structlog
 
 import aiosqlite
 
-from src.history.db import get_closed_trades, get_latest_snapshot
+from src.history.db import get_closed_trades, get_latest_snapshot, _wlock
 
 log = structlog.get_logger(__name__)
 
@@ -70,15 +70,16 @@ async def compute_and_store_metrics(
         "calculated_at": datetime.now(tz=timezone.utc).isoformat(),
     }
 
-    await conn.execute(
-        """INSERT INTO performance_metrics
-           (period, total_trades, winning_trades, win_rate, total_pnl,
-            sharpe_ratio, max_drawdown, avg_hold_hours, calculated_at)
-           VALUES (:period, :total_trades, :winning_trades, :win_rate, :total_pnl,
-                   :sharpe_ratio, :max_drawdown, :avg_hold_hours, :calculated_at)""",
-        row,
-    )
-    await conn.commit()
+    async with _wlock():
+        await conn.execute(
+            """INSERT INTO performance_metrics
+               (period, total_trades, winning_trades, win_rate, total_pnl,
+                sharpe_ratio, max_drawdown, avg_hold_hours, calculated_at)
+               VALUES (:period, :total_trades, :winning_trades, :win_rate, :total_pnl,
+                       :sharpe_ratio, :max_drawdown, :avg_hold_hours, :calculated_at)""",
+            row,
+        )
+        await conn.commit()
     log.info("metrics_computed", **{k: v for k, v in row.items() if k != "calculated_at"})
     return row
 

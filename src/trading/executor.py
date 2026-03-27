@@ -298,13 +298,38 @@ class TradeExecutor:
                     await db_ops.insert_trade(self._conn, t)
                     log.info("reconciliation_inserted", order_id=str(order.id))
 
-            # DB-open trades no longer in Alpaca — mark closed or cancelled
+            # DB-open trades no longer in Alpaca open-orders list —
+            # query actual status: filled orders are removed from open-orders
+            # but still exist and are now live positions.
             for trade in db_trades:
-                if trade.alpaca_order_id and trade.alpaca_order_id not in alpaca_ids:
-                    trade.status = "closed"
-                    trade.closed_at = datetime.now(tz=timezone.utc)
-                    await db_ops.update_trade(self._conn, trade)
-                    log.info("reconciliation_closed", order_id=trade.alpaca_order_id)
+                if not trade.alpaca_order_id or trade.alpaca_order_id in alpaca_ids:
+                    continue
+                try:
+                    order = await self._alpaca.get_order(trade.alpaca_order_id)
+                    status = str(order.status).lower()
+                    if status == "filled":
+                        # Order filled → remains an open position, not closed
+                        trade.status = "open"
+                        trade.entry_price = float(order.filled_avg_price or trade.entry_price)
+                        trade.qty = float(order.filled_qty or trade.qty)
+                        log.info("reconciliation_filled", order_id=trade.alpaca_order_id)
+                    elif status in ("cancelled", "expired", "rejected"):
+                        trade.status = "cancelled"
+                        trade.closed_at = datetime.now(tz=timezone.utc)
+                        log.info("reconciliation_cancelled", order_id=trade.alpaca_order_id,
+                                 alpaca_status=status)
+                    else:
+                        # Unknown final state — mark closed conservatively
+                        trade.status = "closed"
+                        trade.closed_at = datetime.now(tz=timezone.utc)
+                        log.warning("reconciliation_unknown_status", order_id=trade.alpaca_order_id,
+                                    alpaca_status=status)
+                except Exception as exc:  # noqa: BLE001
+                    # Can't determine status — leave as-is and log
+                    log.error("reconciliation_order_fetch_failed",
+                              order_id=trade.alpaca_order_id, error=str(exc))
+                    continue
+                await db_ops.update_trade(self._conn, trade)
 
             await self._conn.commit()
             log.info("reconciliation_complete")
