@@ -15,13 +15,13 @@ These are explicitly out of scope for v1. Do not implement until Phase 1 is live
 
 ## Phase 2 (after Phase 1 core is stable)
 
-- [ ] RSS feed backup (Reuters, AP, MarketWatch) — supplement/fallback when Alpaca WS is down
-- [ ] Daily performance metrics job — Sharpe, max drawdown, win rate, avg hold — logged to `performance_metrics` table at 16:05 ET
-- [ ] Position monitoring loop — poll open positions every 30s for crypto stop-loss; equity uses server-side bracket stops
-- [ ] Health check endpoint — `GET /health` returns 200 when DB + Ollama + Alpaca WS are all connected
+- [x] RSS feed backup (Reuters, AP, MarketWatch) — supplement/fallback when Alpaca WS is down **Completed:** v0.1.0.0 (2026-03-27)
+- [x] Daily performance metrics job — Sharpe, max drawdown, win rate, avg hold — logged to `performance_metrics` table at 16:05 ET **Completed:** v0.1.0.0 (2026-03-27)
+- [x] Position monitoring loop — poll open positions every 30s for crypto stop-loss; equity uses server-side bracket stops **Completed:** v0.1.0.0 (2026-03-27)
+- [x] Health check endpoint — `GET /health` returns 200 when DB + Ollama + Alpaca WS are all connected **Completed:** v0.1.0.0 (2026-03-27)
 
 ## Phase 3 (intelligence)
 
 - [ ] Backtesting harness (`src/backtest/`) — Alpaca historical news replay; verify ≥2yr lookback available on free tier before building
 - [ ] Live → paper flip switch — environment toggle without restart
-- [ ] Telegram alert on major trades — already in scope, track completion here
+- [x] Telegram alert on major trades — already in scope, track completion here **Completed:** v0.1.0.0 (2026-03-27)
