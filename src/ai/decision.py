@@ -125,7 +125,7 @@ def parse_decision(raw: str) -> ParsedDecision:
     return ParsedDecision(
         action=action,
         ticker=str(ticker).upper() if ticker else None,
-        confidence=float(data.get("confidence") or 0.0),
+        confidence=max(0.0, min(1.0, float(data.get("confidence") or 0.0))),
         position_size_pct=float(data.get("position_size_pct") or 0.0),
         stop_loss_pct=float(data.get("stop_loss_pct") or 0.0),
         take_profit_pct=float(data.get("take_profit_pct") or 0.0),

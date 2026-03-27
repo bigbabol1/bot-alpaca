@@ -9,6 +9,7 @@ FinBERT labels: positive → +score, negative → -score, neutral → near 0.
 from __future__ import annotations
 
 import asyncio
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -18,7 +19,7 @@ log = structlog.get_logger(__name__)
 
 # Module-level pipeline singleton — loaded once on first use
 _pipeline = None
-_pipeline_lock = asyncio.Lock()
+_pipeline_lock = threading.Lock()  # threading.Lock because _run_inference runs in ThreadPoolExecutor
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="finbert")
 
 
@@ -41,7 +42,9 @@ def _run_inference(text: str) -> float:
     """
     global _pipeline
     if _pipeline is None:
-        _pipeline = _load_pipeline()
+        with _pipeline_lock:
+            if _pipeline is None:  # double-checked locking
+                _pipeline = _load_pipeline()
 
     result = _pipeline(text[:512])[0]
     label = result["label"].lower()   # "positive", "negative", "neutral"

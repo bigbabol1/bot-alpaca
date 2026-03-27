@@ -15,6 +15,7 @@ Paper→live gate: enforced at startup in main.py; executor trusts the gate.
 from __future__ import annotations
 
 import asyncio
+import math
 import time
 from datetime import datetime, timezone
 
@@ -39,6 +40,14 @@ _CRYPTO_SYMBOLS = frozenset(["BTC/USD", "ETH/USD", "SOL/USD", "BTCUSD", "ETHUSD"
 
 def _is_crypto(ticker: str) -> bool:
     return ticker in _CRYPTO_SYMBOLS or "/" in ticker
+
+
+def _crypto_round(price: float) -> float:
+    """Round a crypto price to enough decimal places (at least 4; more for sub-cent prices)."""
+    if price <= 0:
+        return 0.0
+    decimals = max(4, -int(math.floor(math.log10(price))) + 4)
+    return round(price, decimals)
 
 
 class TradeExecutor:
@@ -177,8 +186,11 @@ class TradeExecutor:
 
     async def _submit_crypto_stop(self, trade: Trade) -> None:
         """After crypto entry fills: submit a separate stop-limit sell."""
-        stop_price = round(trade.entry_price * (1 - _CRYPTO_HARD_STOP_PCT), 4)
-        limit_price = round(stop_price * 0.995, 4)  # 0.5% slippage allowance
+        stop_price = _crypto_round(trade.entry_price * (1 - _CRYPTO_HARD_STOP_PCT))
+        limit_price = _crypto_round(stop_price * 0.995)  # 0.5% slippage allowance
+        if stop_price <= 0 or limit_price <= 0:
+            log.error("crypto_stop_skipped_zero_price", ticker=trade.ticker, entry=trade.entry_price)
+            return
         try:
             await self._alpaca.submit_stop_limit_order(
                 ticker=trade.ticker,
