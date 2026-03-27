@@ -9,12 +9,22 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 
 def _dumps(v: Any) -> str:
     return json.dumps(v, default=str)
+
+
+def _parse_dt(v: str | None) -> datetime | None:
+    """Parse an ISO datetime string, always returning a timezone-aware datetime."""
+    if v is None:
+        return None
+    dt = datetime.fromisoformat(v)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def _loads(v: str | None) -> Any:
@@ -35,7 +45,7 @@ class NewsItem:
     relevance: float          # 0.0 to 1.0
     summary: str = ""
     author: str = ""
-    received_at: datetime = field(default_factory=datetime.utcnow)
+    received_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     forwarded: bool = False
     id: int | None = None
 
@@ -65,7 +75,7 @@ class NewsItem:
             symbols=_loads(row.get("symbols")) or [],
             sentiment=row["sentiment"],
             relevance=row["relevance"],
-            received_at=datetime.fromisoformat(row["received_at"]),
+            received_at=_parse_dt(row["received_at"]),
             forwarded=bool(row.get("forwarded", 0)),
         )
 
@@ -85,7 +95,7 @@ class AIDecision:
     risk_factors: list[str]
     literature_ref: str
     risk_profile: str
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     id: int | None = None
 
     def to_db_row(self) -> dict:
@@ -123,7 +133,7 @@ class AIDecision:
             risk_factors=_loads(row["risk_factors"]) or [],
             literature_ref=row.get("literature_ref") or "",
             risk_profile=row["risk_profile"],
-            created_at=datetime.fromisoformat(row["created_at"]),
+            created_at=_parse_dt(row["created_at"]),
         )
 
 
@@ -141,7 +151,7 @@ class Trade:
     status: str = "pending"  # pending | open | closed | cancelled | rate_limited | timeout_cancelled | abandoned
     pnl: float | None = None
     pnl_pct: float | None = None
-    opened_at: datetime = field(default_factory=datetime.utcnow)
+    opened_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     closed_at: datetime | None = None
     id: int | None = None
 
@@ -179,8 +189,8 @@ class Trade:
             status=row["status"],
             pnl=row.get("pnl"),
             pnl_pct=row.get("pnl_pct"),
-            opened_at=datetime.fromisoformat(row["opened_at"]),
-            closed_at=datetime.fromisoformat(row["closed_at"]) if row.get("closed_at") else None,
+            opened_at=_parse_dt(row["opened_at"]),
+            closed_at=_parse_dt(row["closed_at"]) if row.get("closed_at") else None,
         )
 
 
@@ -191,7 +201,7 @@ class PortfolioSnapshot:
     positions: list[dict]    # [{ticker, qty, market_value, unrealized_pnl}]
     daily_pnl: float
     daily_pnl_pct: float
-    snapped_at: datetime = field(default_factory=datetime.utcnow)
+    snapped_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     id: int | None = None
 
     def to_db_row(self) -> dict:
@@ -213,5 +223,5 @@ class PortfolioSnapshot:
             positions=_loads(row["positions"]) or [],
             daily_pnl=row["daily_pnl"],
             daily_pnl_pct=row["daily_pnl_pct"],
-            snapped_at=datetime.fromisoformat(row["snapped_at"]),
+            snapped_at=_parse_dt(row["snapped_at"]),
         )

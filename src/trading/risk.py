@@ -21,7 +21,8 @@ Financial correctness tests (non-negotiable):
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import date
 from typing import Literal
 
 import aiosqlite
@@ -95,7 +96,8 @@ class RiskEngine:
         self._profile_name = profile_name
         self._kelly_enabled = False
         self._kelly_guard_active = False  # True when Kelly is temporarily disabled by Sharpe guard
-        self._sharpe_ok_days = 0          # consecutive days Sharpe >= 1.0
+        self._sharpe_ok_days = 0          # consecutive calendar-days Sharpe >= 1.0
+        self._kelly_guard_last_checked: date | None = None  # guard at most once per day
 
     @property
     def profile(self) -> RiskProfile:
@@ -132,10 +134,10 @@ class RiskEngine:
         if ai_confidence < p.min_confidence:
             return _blocked(f"confidence {ai_confidence:.2f} < min {p.min_confidence}")
 
-        # 2. Daily loss limit
-        if abs(daily_loss_pct) >= p.max_daily_loss_pct:
+        # 2. Daily loss limit (only halt on losses, not gains)
+        if daily_loss_pct <= -p.max_daily_loss_pct:
             return _blocked(
-                f"daily loss limit hit: {daily_loss_pct:.2%} >= {p.max_daily_loss_pct:.2%}"
+                f"daily loss limit hit: {daily_loss_pct:.2%} <= -{p.max_daily_loss_pct:.2%}"
             )
 
         # 3. Open position cap
@@ -193,6 +195,11 @@ class RiskEngine:
             await self._update_kelly_guard(conn)
 
     async def _update_kelly_guard(self, conn: aiosqlite.Connection) -> None:
+        today = date.today()
+        if self._kelly_guard_last_checked == today:
+            return   # already ran today — don't count intraday trades as "days"
+        self._kelly_guard_last_checked = today
+
         trades = await get_closed_trades(conn, limit=30)
         if len(trades) < 5:
             return
@@ -248,7 +255,7 @@ class RiskEngine:
 
     def daily_loss_halt(self, daily_loss_pct: float) -> bool:
         """Return True if daily loss limit is exceeded (trading should halt)."""
-        return abs(daily_loss_pct) >= self.profile.max_daily_loss_pct
+        return daily_loss_pct <= -self.profile.max_daily_loss_pct
 
 
 def _blocked(reason: str) -> SizingResult:

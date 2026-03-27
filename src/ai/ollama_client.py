@@ -142,7 +142,7 @@ class OllamaClient:
             test_result = await self.decide(
                 user_prompt="News to evaluate: []\nRespond with a hold decision.",
             )
-            if not test_result.validation_failed or test_result.action == "hold":
+            if not test_result.validation_failed:
                 self._state = CircuitState.CLOSED
                 self._consecutive_failures = 0
                 log.info("ollama_circuit_recovered")

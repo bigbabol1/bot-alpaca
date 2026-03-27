@@ -80,16 +80,22 @@ async def test_atr_stop_calculation(tmp_db):
 # ── Daily loss limit ──────────────────────────────────────────────────────────
 
 def test_daily_loss_limit_halt():
-    """equity=$10k, loss=$301, limit=3% → halt triggered."""
+    """equity=$10k, loss=$301, limit=3% → halt triggered (loss is negative)."""
     engine = RiskEngine("conservative")
-    # loss_pct = 301/10000 = 3.01% > 3% limit
-    assert engine.daily_loss_halt(0.0301) is True
+    # loss_pct = -301/10000 = -3.01% loss → triggers halt
+    assert engine.daily_loss_halt(-0.0301) is True
 
 
 def test_daily_loss_limit_not_triggered():
     """Loss of 2.99% does not trigger conservative halt."""
     engine = RiskEngine("conservative")
-    assert engine.daily_loss_halt(0.0299) is False
+    assert engine.daily_loss_halt(-0.0299) is False
+
+
+def test_daily_gain_does_not_trigger_halt():
+    """A +3.1% winning day should NOT halt trading (halt is loss-only)."""
+    engine = RiskEngine("conservative")
+    assert engine.daily_loss_halt(0.0301) is False
 
 
 async def test_daily_loss_limit_blocks_trade(tmp_db):
@@ -103,7 +109,7 @@ async def test_daily_loss_limit_blocks_trade(tmp_db):
         ai_confidence=0.8,
         ai_position_pct=0.01,
         open_positions_count=0,
-        daily_loss_pct=0.031,   # 3.1% > 3% limit
+        daily_loss_pct=-0.031,   # -3.1% loss > 3% limit
     )
     assert result.blocked
     assert "daily loss limit" in result.block_reason

@@ -132,6 +132,8 @@ async def insert_news_item(conn: aiosqlite.Connection, item: NewsItem) -> int:
 
 
 async def mark_news_forwarded(conn: aiosqlite.Connection, news_ids: list[int]) -> None:
+    if not news_ids:
+        return
     await conn.execute(
         f"UPDATE news_items SET forwarded=1 WHERE id IN ({','.join('?' * len(news_ids))})",
         news_ids,

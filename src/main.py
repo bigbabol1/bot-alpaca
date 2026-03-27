@@ -110,17 +110,23 @@ def _load_trading_params(config_dir: Path) -> dict:
 # ── Config hot-reload ──────────────────────────────────────────────────────────
 
 class HotReloadWatcher:
-    """Polls trading_params.yml every 5s and atomically swaps the risk engine profile."""
+    """Polls trading_params.yml every 5s and atomically swaps the risk engine profile.
+
+    Also refreshes the shared ``params`` dict so that operational settings
+    (finbert_threshold, batch_size, etc.) take effect without a restart.
+    """
 
     def __init__(
         self,
         config_dir: Path,
         risk_engine: RiskEngine,
         alert_fn,
+        params: dict,
     ) -> None:
         self._path = config_dir / "trading_params.yml"
         self._risk_engine = risk_engine
         self._alert = alert_fn
+        self._params = params
         self._last_mtime: float = 0.0
 
     async def run(self) -> None:
@@ -138,8 +144,8 @@ class HotReloadWatcher:
     async def _reload(self) -> None:
         try:
             with open(self._path) as f:
-                params = yaml.safe_load(f)
-            new_profile = params.get("risk_profile", "conservative")
+                new_params = yaml.safe_load(f)
+            new_profile = new_params.get("risk_profile", "conservative")
             if new_profile not in PROFILES:
                 raise ValueError(f"Unknown profile: {new_profile!r}")
             old_profile = self._risk_engine.profile.name
@@ -151,6 +157,10 @@ class HotReloadWatcher:
                         f"⚙️ Risk profile changed: {old_profile} → {new_profile}",
                         priority=False,
                     )
+            # Refresh shared params dict so process_news_loop picks up new values
+            self._params.clear()
+            self._params.update(new_params)
+            log.debug("hot_reload_params_refreshed")
         except Exception as exc:  # noqa: BLE001
             log.error("hot_reload_failed", error=str(exc))
             if self._alert:
@@ -492,7 +502,7 @@ async def main() -> None:
 
     # ── Config hot-reload ──────────────────────────────────────────────────────
     params = _load_trading_params(settings.config_dir)
-    hot_reload = HotReloadWatcher(settings.config_dir, risk_engine, alert)
+    hot_reload = HotReloadWatcher(settings.config_dir, risk_engine, alert, params)
 
     # ── Health check app ───────────────────────────────────────────────────────
     app = _build_app(state, settings)

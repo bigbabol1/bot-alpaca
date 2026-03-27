@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import structlog
@@ -118,11 +119,11 @@ class DailyMetricsJob:
 
     async def run(self) -> None:
         """Send daily P&L summary at 16:05 ET."""
+        _ET = ZoneInfo("America/New_York")
         while True:
-            now_utc = datetime.now(tz=timezone.utc)
-            # ET = UTC-5 (standard) or UTC-4 (daylight) — approximate with UTC-5
-            now_et_hour = (now_utc.hour - 5) % 24
-            now_et_minute = now_utc.minute
+            now_et = datetime.now(tz=_ET)
+            now_et_hour = now_et.hour
+            now_et_minute = now_et.minute
 
             if now_et_hour == _DAILY_SUMMARY_HOUR_ET and now_et_minute == _DAILY_SUMMARY_MINUTE_ET:
                 try:

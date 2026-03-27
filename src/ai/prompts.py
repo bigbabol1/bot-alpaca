@@ -66,7 +66,7 @@ def build_context_prompt(
                 "headline": _sanitize(item.headline),
                 "summary": _sanitize(item.summary or ""),
                 "source": _sanitize(item.source or ""),
-                "symbols": item.symbols,
+                "symbols": [_sanitize(s) for s in (item.symbols or [])],
                 "sentiment_score": round(item.sentiment, 3),
                 "relevance_score": round(item.relevance, 3),
                 "received_at": item.received_at.isoformat(),
