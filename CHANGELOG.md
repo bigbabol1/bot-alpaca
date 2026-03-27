@@ -28,21 +28,21 @@ Format: [Semantic versioning](https://semver.org) — MAJOR.MINOR.PATCH.MICRO
   - Docker + docker-compose with FinBERT model baked into image (`Dockerfile`, `docker-compose.yml`)
 
 ### Fixed (review pass — 21 issues)
-- `asyncio.Lock` serialization for all DB writes — prevents interleaved commits under concurrent async tasks
-- Reconciliation correctly identifies filled orders via `get_order(id)` — was wrongly marking filled trades as closed
-- Kelly `b` parameter derived from actual trade history (mean winner / mean loser) — was receiving `ai_position_pct` fraction (≈0.01), producing near-zero sizing
-- IP allowlist reads `X-Real-IP` / `X-Forwarded-For` headers — was using `request.client.host` (proxy IP) behind nginx
-- Day-1 equity seed taken at startup so `prev_equity` is never 0.0 on first day
-- Circuit breaker recovery gated on `not validation_failed` — was `not failed OR action=="hold"`, closing circuit on parse failures
-- Daily loss halt fires only on losses (`pct <= -limit`) — was `abs(pct) >= limit`, halting on winning days too
-- Kelly guard date-gated to once per calendar day — was incrementing per trade call
-- `update_trade` now persists `entry_price` — was silently omitted from the UPDATE SET clause
-- Crypto fail-safe exit side computed from `trade.side` — was hardcoded `"sell"` for all positions
-- Crypto first fill poll: 1-second delay (market orders fill in <1s) — was 10 seconds
-- `_sanitize()` applied to `symbols`, `positions_json`, `decisions_json` in LLM context
-- All model datetimes use `datetime.now(timezone.utc)` + `_parse_dt()` helper ensures tz-aware on DB read
-- `mark_news_forwarded` guarded against empty list (would produce invalid `IN ()` SQL)
-- `decision_id=None` for reconciled orphan orders — was `0`, violating FK constraint with `foreign_keys=ON`
+- `asyncio.Lock` serialization for all DB writes — prevents interleaved commits when multiple async tasks write concurrently
+- Reconciliation correctly identifies filled orders via `get_order(id)` — the old `get_open_orders()` call was marking filled trades as still open
+- Kelly `b` parameter now derived from actual trade history (mean winner / mean loser) — was accidentally using `ai_position_pct` (≈0.01), producing near-zero position sizes
+- IP allowlist reads `X-Real-IP` / `X-Forwarded-For` headers — `request.client.host` returns the proxy IP behind nginx, not the client IP
+- Day-1 equity seed taken at startup so `prev_equity` is never `0.0` on the first trading day
+- Circuit breaker recovery gated on `not validation_failed` — the old condition (`not failed OR action=="hold"`) closed the circuit on LLM parse failures, not just genuine holds
+- Daily loss halt fires only on losses (`pct <= -limit`) — the old `abs(pct) >= limit` halted trading on big winning days too
+- Kelly guard date-gated to once per calendar day — was incrementing on every trade call, not just the first of the day
+- `update_trade` now persists `entry_price` — was silently omitted from the `UPDATE SET` clause since day one
+- Crypto fail-safe exit side computed from `trade.side` — was hardcoded `"sell"`, which is wrong for short positions
+- Crypto first fill poll: 1-second delay — market orders typically fill in under a second; the old 10-second wait was just unnecessary latency
+- `_sanitize()` applied to `symbols`, `positions_json`, `decisions_json` in LLM context — prompt injection via ticker names or position data
+- All model datetimes use `datetime.now(timezone.utc)`; `_parse_dt()` helper ensures tz-aware on DB read
+- `mark_news_forwarded` guarded against empty list — an empty `IN ()` clause is invalid SQL and would crash the batch
+- `decision_id=None` for reconciled orphan orders — `0` violated the FK constraint when `PRAGMA foreign_keys=ON`
 
 ### Tests
 - 115 tests across 11 test files covering: decision parsing, prompt sanitization, DB operations, risk engine, Kelly criterion, market data cache, portfolio context, configuration, news filtering, and retry logic
