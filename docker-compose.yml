@@ -13,6 +13,9 @@ services:
     extra_hosts:
       # Lets the container reach the NAS host at host.docker.internal if needed
       - "host.docker.internal:host-gateway"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     ports:
       # Dashboard — bind to LAN only (not 0.0.0.0) for safety
       - "127.0.0.1:8080:8080"
