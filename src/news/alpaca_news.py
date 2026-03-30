@@ -100,7 +100,7 @@ class AlpacaNewsStream:
         since = datetime.now(tz=timezone.utc) - timedelta(minutes=minutes)
         try:
             req = NewsRequest(
-                symbols=self._watchlist,
+                symbols=",".join(self._watchlist),
                 start=since,
                 limit=50,
             )
