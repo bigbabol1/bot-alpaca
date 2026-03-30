@@ -60,6 +60,47 @@ def _read_version() -> str:
 
 # ── Logging setup ──────────────────────────────────────────────────────────────
 
+class _PipeRenderer:
+    """Formats log lines as:  YYYY-MM-DD HH:MM:SS | LEVEL    | event  key=val ..."""
+
+    _RESET  = "\033[0m"
+    _GREEN  = "\033[32m"
+    _YELLOW = "\033[33m"
+    _RED    = "\033[31m"
+    _CYAN   = "\033[36m"
+    _BOLD   = "\033[1m"
+
+    _LEVEL_COLOR = {
+        "debug":    "\033[36m",   # cyan
+        "info":     "\033[32m",   # green
+        "warning":  "\033[33m",   # yellow
+        "error":    "\033[31m",   # red
+        "critical": "\033[35m",   # magenta
+    }
+
+    def __call__(self, logger, method, event_dict: dict) -> str:
+        ts    = event_dict.pop("timestamp", "")
+        level = event_dict.pop("level", method).upper()
+        event_dict.pop("logger", None)
+        event_dict.pop("_record", None)
+        event = event_dict.pop("event", "")
+
+        # Build key=val pairs (skip internal structlog keys)
+        kv = "  ".join(
+            f"{k}={v}"
+            for k, v in event_dict.items()
+            if not k.startswith("_")
+        )
+        message = f"{event}  {kv}" if kv else event
+
+        lc = self._LEVEL_COLOR.get(level.lower(), "")
+        return (
+            f"{self._GREEN}{ts}{self._RESET}"
+            f" | {lc}{self._BOLD}{level:<8}{self._RESET}"
+            f" | {message}"
+        )
+
+
 def _setup_logging(log_dir: Path) -> None:
     import logging
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -78,10 +119,10 @@ def _setup_logging(log_dir: Path) -> None:
         processors=[
             structlog.stdlib.add_log_level,
             structlog.stdlib.add_logger_name,
-            structlog.processors.TimeStamper(fmt="%H:%M:%S", utc=True),
+            structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S", utc=True),
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
-            structlog.dev.ConsoleRenderer(colors=False),
+            _PipeRenderer(),
         ],
         wrapper_class=structlog.make_filtering_bound_logger(logging.DEBUG),
         context_class=dict,

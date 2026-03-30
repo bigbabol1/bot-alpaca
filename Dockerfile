@@ -18,6 +18,7 @@ RUN python -c "from transformers import pipeline; pipeline('sentiment-analysis',
 # Copy source
 COPY src/ ./src/
 COPY config/ ./config/
+COPY VERSION .
 
 # Ensure volume mount points exist
 RUN mkdir -p /app/data /app/logs
