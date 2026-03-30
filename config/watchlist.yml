@@ -77,6 +77,13 @@ equities:
   - SNOW
   - PLTR
 
+  # Cybersecurity
+  - PANW
+  - CRWD
+  - FTNT
+  - ZS
+  - S
+
   # Other high-volume names
   - AA        # Alcoa — metals/macro proxy
   - BA        # Boeing — industrial bellwether
