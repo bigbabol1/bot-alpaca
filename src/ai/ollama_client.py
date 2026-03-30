@@ -50,6 +50,7 @@ class OllamaClient:
             base_url=f"{host}/v1",
             api_key="ollama",   # Ollama ignores the key value
             timeout=_OLLAMA_TIMEOUT,
+            max_retries=0,      # we handle retries ourselves via async_retry
         )
         self._state = CircuitState.CLOSED
         self._consecutive_failures = 0

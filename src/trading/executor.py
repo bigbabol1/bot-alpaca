@@ -245,7 +245,7 @@ class TradeExecutor:
             delay = _FILL_POLL_INTERVAL  # subsequent polls use standard interval
             try:
                 order = await self._alpaca.get_order(trade.alpaca_order_id)
-                status = str(order.status).lower()
+                status = getattr(order.status, "value", str(order.status)).lower()
                 log.debug("order_poll_status", ticker=trade.ticker, status=status)
 
                 if status == "filled":
@@ -338,7 +338,7 @@ class TradeExecutor:
                     continue
                 try:
                     order = await self._alpaca.get_order(trade.alpaca_order_id)
-                    status = str(order.status).lower()
+                    status = getattr(order.status, "value", str(order.status)).lower()
                     if status == "filled":
                         # Order filled → remains an open position, not closed
                         trade.status = "open"
