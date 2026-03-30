@@ -14,38 +14,88 @@ equities:
   # Sector ETFs
   - SPY
   - QQQ
-  - XLF
-  - XLE
-  - XLK
-  - GLD
-  - TLT
+  - IWM       # Russell 2000 small-cap
+  - DIA       # Dow Jones
+  - XLF       # Financials
+  - XLE       # Energy
+  - XLK       # Tech
+  - XLV       # Health Care
+  - XLI       # Industrials
+  - XLRE      # Real Estate
+  - GLD       # Gold
+  - SLV       # Silver
+  - TLT       # Long bonds
+  - HYG       # High-yield bonds
+  - USO       # Oil
 
-  # Top S&P by volume (sample — expand quarterly)
+  # Mega-cap financials
   - JPM
   - BAC
-  - XOM
-  - JNJ
+  - GS
+  - MS
+  - BRK.B
   - V
+  - MA
+
+  # Mega-cap healthcare / pharma
+  - JNJ
   - UNH
-  - WMT
-  - HD
-  - PG
-  - COST
   - ABBV
   - MRK
-  - CVX
   - LLY
+  - PFE
+  - TMO
+
+  # Mega-cap energy
+  - XOM
+  - CVX
+
+  # Mega-cap consumer
+  - WMT
+  - COST
+  - HD
+  - PG
+  - MCD
+  - KO
+  - PEP
+
+  # Mega-cap tech / semis (beyond Mag-7)
   - AVGO
-  - NFLX
-  - CRM
   - AMD
-  - ORCL
   - INTC
+  - QCOM
+  - TXN
+  - AMAT
+  - MU
+
+  # Mega-cap software / cloud
+  - ORCL
+  - CRM
+  - NFLX
+  - ADBE
+  - NOW
+  - SNOW
+  - PLTR
+
+  # Other high-volume names
+  - AA        # Alcoa — metals/macro proxy
+  - BA        # Boeing — industrial bellwether
+  - CAT       # Caterpillar — cycle proxy
+  - DE        # Deere — agriculture
+  - F         # Ford
+  - GM        # General Motors
+  - DIS       # Disney
+  - UBER
+  - SPOT
+  - PYPL
+  - SQ        # Block
 
 crypto:
   - BTC/USD
   - ETH/USD
   - SOL/USD
+  - XRP/USD
+  - DOGE/USD
 
 # Macro news ticker mapping
 # News without a ticker → map to these symbols
@@ -54,5 +104,11 @@ macro_mappings:
   inflation: [SPY, TLT, GLD]
   gdp: [SPY, TLT]
   rates: [SPY, TLT, XLF]
-  energy: [XLE]
-  oil: [XLE]
+  energy: [XLE, USO]
+  oil: [XLE, USO, CVX, XOM]
+  gold: [GLD]
+  bonds: [TLT, HYG]
+  banks: [XLF, JPM, BAC, GS]
+  defense: [BA]
+  auto: [F, GM, TSLA]
+  pharma: [XLV, LLY, MRK, PFE]
