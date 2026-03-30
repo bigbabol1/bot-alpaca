@@ -18,6 +18,8 @@ Key modules:
 
 Run: `python -m pytest tests/ -v`
 
+CI: GitHub Actions runs the full suite on every push and PR to `main` (`.github/workflows/ci.yml`). Uses `requirements-ci.txt` — excludes torch/transformers (mocked in tests) to keep CI fast (~30s).
+
 Framework: pytest + pytest-asyncio (`asyncio_mode = auto`). Test directory: `tests/` — mirrors `src/`.
 
 **Expectations:**

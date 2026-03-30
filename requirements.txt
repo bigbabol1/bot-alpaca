@@ -41,3 +41,6 @@ uvicorn>=0.27.0
 
 # HTTP client (used by health check test)
 requests>=2.31.0
+
+# Transitive dependency of alpaca-py (not auto-installed on all platforms)
+pytz>=2024.1
