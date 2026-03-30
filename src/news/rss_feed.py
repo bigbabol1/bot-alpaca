@@ -10,6 +10,9 @@ import asyncio
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
+import io
+import sys
+
 import aiohttp
 import feedparser
 import structlog
@@ -56,7 +59,14 @@ class RSSFeedAggregator:
                     log.warning("rss_poll_failed", source=name, error=f"HTTP {resp.status}")
                     return
                 text = await resp.text()
-            feed = feedparser.parse(text)
+            # feedparser prints XML parser warnings to stdout — suppress them
+            _sink = io.StringIO()
+            _old_stdout, _old_stderr = sys.stdout, sys.stderr
+            sys.stdout = sys.stderr = _sink
+            try:
+                feed = feedparser.parse(text)
+            finally:
+                sys.stdout, sys.stderr = _old_stdout, _old_stderr
             count = 0
             for entry in feed.entries:
                 item = self._parse_entry(entry, source=name)

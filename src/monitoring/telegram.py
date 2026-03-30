@@ -83,6 +83,15 @@ class TelegramAlerter:
                             log.debug("telegram_sent", chars=len(message))
                             return
                         body = await resp.text()
+                        # 4xx = permanent client error (wrong token/chat_id) — disable immediately
+                        if 400 <= resp.status < 500:
+                            log.warning(
+                                "telegram_disabled",
+                                reason=f"HTTP {resp.status} — check TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID",
+                                body=body[:120],
+                            )
+                            self._enabled = False
+                            return
                         log.warning(
                             "telegram_http_error",
                             status=resp.status,
