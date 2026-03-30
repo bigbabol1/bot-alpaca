@@ -89,6 +89,26 @@ class TradeExecutor:
         sizing: SizingResult,
         risk_profile: str,
     ) -> Trade | None:
+        # Alpaca bracket orders require whole-share quantities.
+        # Round down; skip if that would be 0 shares.
+        whole_qty = math.floor(sizing.qty)
+        if whole_qty < 1:
+            log.info(
+                "executor_skipped_fractional",
+                ticker=ticker,
+                computed_qty=sizing.qty,
+                reason="bracket orders require ≥1 whole share",
+            )
+            return None
+        sizing = SizingResult(
+            qty=float(whole_qty),
+            stop_price=sizing.stop_price,
+            take_profit_price=sizing.take_profit_price,
+            position_pct=sizing.position_pct,
+            sizing_method=sizing.sizing_method,
+            blocked=sizing.blocked,
+            block_reason=sizing.block_reason,
+        )
         try:
             order = await self._alpaca.submit_bracket_order(
                 ticker=ticker,

@@ -25,14 +25,32 @@ _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="finbert")
 
 def _load_pipeline():
     """Load FinBERT (blocking — runs in thread pool)."""
+    import logging
+    import os
+    import sys
+    # Suppress HuggingFace Hub unauthenticated-request warnings and
+    # transformers weight-mismatch LOAD REPORT printed to stdout.
+    os.environ.setdefault("TRANSFORMERS_NO_ADVISORY_WARNINGS", "1")
+    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+    logging.getLogger("transformers").setLevel(logging.ERROR)
+    logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+
     from transformers import pipeline as hf_pipeline
-    return hf_pipeline(
-        "sentiment-analysis",
-        model="ProsusAI/finbert",
-        device=-1,          # CPU — NAS container has no GPU
-        truncation=True,
-        max_length=512,
-    )
+
+    _sink = io.StringIO()
+    _old_out, _old_err = sys.stdout, sys.stderr
+    sys.stdout = sys.stderr = _sink
+    try:
+        result = hf_pipeline(
+            "sentiment-analysis",
+            model="ProsusAI/finbert",
+            device=-1,          # CPU — NAS container has no GPU
+            truncation=True,
+            max_length=512,
+        )
+    finally:
+        sys.stdout, sys.stderr = _old_out, _old_err
+    return result
 
 
 def _run_inference(text: str) -> float:

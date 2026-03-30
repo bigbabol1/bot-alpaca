@@ -24,7 +24,7 @@ log = structlog.get_logger(__name__)
 _RSS_FEEDS = {
     "marketwatch": "https://feeds.marketwatch.com/marketwatch/topstories",
     "cnbc":        "https://www.cnbc.com/id/100003114/device/rss/rss.html",
-    "yahoo":       "https://finance.yahoo.com/news/rssindex",
+    # yahoo removed — consistently returns HTTP 429 (rate-limited)
 }
 
 _POLL_INTERVAL = 300   # 5 minutes
