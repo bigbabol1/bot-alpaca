@@ -52,6 +52,9 @@ class RSSFeedAggregator:
     ) -> None:
         try:
             async with session.get(url) as resp:
+                if resp.status >= 400:
+                    log.warning("rss_poll_failed", source=name, error=f"HTTP {resp.status}")
+                    return
                 text = await resp.text()
             feed = feedparser.parse(text)
             count = 0
