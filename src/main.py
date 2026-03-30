@@ -51,6 +51,13 @@ import pandas_market_calendars as mcal
 log = structlog.get_logger(__name__)
 
 
+def _read_version() -> str:
+    try:
+        return (Path(__file__).parent.parent / "VERSION").read_text().strip()
+    except Exception:
+        return "unknown"
+
+
 # ── Logging setup ──────────────────────────────────────────────────────────────
 
 def _setup_logging(log_dir: Path) -> None:
@@ -466,7 +473,20 @@ async def main() -> None:
     settings = get_settings()
     _setup_logging(settings.log_dir)
 
-    log.info("bot_starting", trading_mode=settings.trading_mode)
+    # ── Startup config banner ──────────────────────────────────────────────────
+    telegram_enabled = bool(settings.telegram_bot_token and settings.telegram_chat_id)
+    log.info(
+        "bot_starting",
+        version=_read_version(),
+        trading_mode=settings.trading_mode,
+        risk_profile=settings.risk_profile,
+        ollama_host=settings.ollama_host,
+        ollama_model=settings.ollama_decision_model,
+        two_stage_llm=settings.two_stage_llm,
+        telegram=telegram_enabled,
+        dashboard_port=settings.dashboard_port,
+        allowed_ips=settings.allowed_ips or "(any)",
+    )
 
     # ── Paper→live gate ────────────────────────────────────────────────────────
     if settings.trading_mode == "live":
@@ -499,6 +519,13 @@ async def main() -> None:
     # ── Watchlist ──────────────────────────────────────────────────────────────
     equities, crypto, macro_map = _load_watchlist(settings.config_dir)
     all_symbols = equities + crypto
+    log.info(
+        "watchlist_loaded",
+        equities=len(equities),
+        crypto=len(crypto),
+        total=len(all_symbols),
+        tickers=", ".join(all_symbols[:8]) + ("..." if len(all_symbols) > 8 else ""),
+    )
 
     # ── Market data cache ──────────────────────────────────────────────────────
     market_data = MarketDataCache(alpaca, equities)
@@ -509,6 +536,10 @@ async def main() -> None:
     # ── Ollama client ──────────────────────────────────────────────────────────
     ollama = OllamaClient(settings.ollama_host, settings.ollama_decision_model)
     ollama.set_alert_callback(alert)
+    ollama_ok = await ollama.health_check()
+    log.info("ollama_ready" if ollama_ok else "ollama_unreachable",
+             host=settings.ollama_host, model=settings.ollama_decision_model,
+             status="ok" if ollama_ok else "CIRCUIT WILL OPEN — bot trades safely in hold mode")
 
     # ── Executor ───────────────────────────────────────────────────────────────
     executor = TradeExecutor(alpaca, conn, alert)
