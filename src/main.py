@@ -64,12 +64,15 @@ def _setup_logging(log_dir: Path) -> None:
     import logging
     log_dir.mkdir(parents=True, exist_ok=True)
     # Configure stdlib root logger so structlog.stdlib.LoggerFactory has a handler.
-    # Root at WARNING — only our src.* loggers get DEBUG.
+    # Root at DEBUG — explicitly silence noisy third-party libs.
     logging.basicConfig(
         format="%(message)s",
         stream=__import__("sys").stdout,
-        level=logging.WARNING,
+        level=logging.DEBUG,
     )
+    for noisy in ("aiosqlite", "urllib3", "websockets", "asyncio", "hpack",
+                  "alpaca", "httpcore", "httpx"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     logging.getLogger("src").setLevel(logging.DEBUG)
     structlog.configure(
         processors=[
