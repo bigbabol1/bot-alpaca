@@ -112,7 +112,7 @@ def _setup_logging(log_dir: Path) -> None:
         level=logging.DEBUG,
     )
     for noisy in ("aiosqlite", "urllib3", "websockets", "asyncio", "hpack",
-                  "alpaca", "httpcore", "httpx"):
+                  "alpaca", "httpcore", "httpx", "openai", "openai._base_client"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
     logging.getLogger("src").setLevel(logging.DEBUG)
     structlog.configure(
