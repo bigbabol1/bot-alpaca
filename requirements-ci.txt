@@ -17,7 +17,7 @@ watchdog>=4.0.0
 fastapi>=0.110.0
 uvicorn>=0.27.0
 requests>=2.31.0
-pytz>=2024.1
+pytz>=2024.1  # transitive dep of alpaca-py
 
 # Test dependencies
 pytest>=8.0.0
