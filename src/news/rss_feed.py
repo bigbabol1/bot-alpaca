@@ -22,9 +22,9 @@ from src.history.models import NewsItem
 log = structlog.get_logger(__name__)
 
 _RSS_FEEDS = {
-    "reuters": "https://feeds.reuters.com/reuters/businessNews",
-    "ap": "https://feeds.apnews.com/rss/apf-business",
     "marketwatch": "https://feeds.marketwatch.com/marketwatch/topstories",
+    "cnbc":        "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+    "yahoo":       "https://finance.yahoo.com/news/rssindex",
 }
 
 _POLL_INTERVAL = 300   # 5 minutes
