@@ -106,7 +106,15 @@ class AlpacaNewsStream:
             )
             news = self._news_client.get_news(req)
             count = 0
-            for article in (news.data.get("news") or []):
+            # alpaca-py NewsSet is iterable directly; .data may be a dict or
+            # a typed object depending on SDK version — iterate the top-level response
+            articles = []
+            if hasattr(news, "__iter__"):
+                articles = list(news)
+            elif hasattr(news, "data"):
+                d = news.data
+                articles = d.get("news", []) if isinstance(d, dict) else list(d) if hasattr(d, "__iter__") else []
+            for article in articles:
                 item = self._parse_rest(article)
                 if item:
                     await self._enqueue(item)
@@ -148,9 +156,9 @@ class AlpacaNewsStream:
 
     @staticmethod
     def _parse_rest(article) -> NewsItem | None:
-        """Parse a REST API news article."""
+        """Parse a REST API News object (alpaca-py returns typed objects, not dicts)."""
         try:
-            published = article.get("created_at") or article.get("updated_at")
+            published = getattr(article, "created_at", None) or getattr(article, "updated_at", None)
             if isinstance(published, str):
                 received = datetime.fromisoformat(published.replace("Z", "+00:00"))
             elif isinstance(published, datetime):
@@ -159,12 +167,12 @@ class AlpacaNewsStream:
                 received = datetime.now(tz=timezone.utc)
 
             return NewsItem(
-                headline=article.get("headline") or "",
-                summary=article.get("summary") or "",
-                author=article.get("author") or "",
-                source=article.get("source") or "alpaca",
-                url=article.get("url") or "",
-                symbols=list(article.get("symbols") or []),
+                headline=getattr(article, "headline", "") or "",
+                summary=getattr(article, "summary", "") or "",
+                author=getattr(article, "author", "") or "",
+                source=getattr(article, "source", "") or "alpaca",
+                url=getattr(article, "url", "") or "",
+                symbols=list(getattr(article, "symbols", None) or []),
                 sentiment=0.0,
                 relevance=0.0,
                 received_at=received,
