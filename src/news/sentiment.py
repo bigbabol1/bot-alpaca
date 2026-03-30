@@ -25,6 +25,7 @@ _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="finbert")
 
 def _load_pipeline():
     """Load FinBERT (blocking — runs in thread pool)."""
+    import io
     import logging
     import os
     import sys
