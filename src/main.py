@@ -434,6 +434,7 @@ async def process_news_loop(
             ai_position_pct=parsed.position_size_pct,
             open_positions_count=open_positions,
             daily_loss_pct=daily_pnl_pct / 100.0,
+            side=parsed.action,
         )
 
         # Execute

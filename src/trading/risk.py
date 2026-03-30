@@ -122,6 +122,7 @@ class RiskEngine:
         ai_position_pct: float,
         open_positions_count: int,
         daily_loss_pct: float,
+        side: str = "buy",          # "buy" | "sell"
     ) -> SizingResult:
         """
         Compute position size, stop price, and take-profit price.
@@ -159,15 +160,24 @@ class RiskEngine:
         # Apply profile cap (never exceed profile max)
         position_pct = min(raw_pct, p.max_position_pct)
 
-        # 5. ATR stop calculation
+        # 5. ATR stop calculation — direction-aware for long (buy) vs short (sell)
+        short = side == "sell"
         if atr and entry_price:
             stop_distance = atr * p.atr_stop_multiplier
-            stop_price = entry_price - stop_distance
-            take_profit_price = entry_price + (stop_distance * p.take_profit_ratio)
+            if short:
+                stop_price = entry_price + stop_distance
+                take_profit_price = entry_price - (stop_distance * p.take_profit_ratio)
+            else:
+                stop_price = entry_price - stop_distance
+                take_profit_price = entry_price + (stop_distance * p.take_profit_ratio)
         else:
             # Fallback: percentage-based stops (from AI decision)
-            stop_price = entry_price * (1.0 - 0.02)         # 2% default
-            take_profit_price = entry_price * (1.0 + 0.04)  # 4% default
+            if short:
+                stop_price = entry_price * (1.0 + 0.02)
+                take_profit_price = entry_price * (1.0 - 0.04)
+            else:
+                stop_price = entry_price * (1.0 - 0.02)
+                take_profit_price = entry_price * (1.0 + 0.04)
             log.warning("risk_no_atr_using_pct_fallback", entry_price=entry_price)
 
         # 6. Qty calculation

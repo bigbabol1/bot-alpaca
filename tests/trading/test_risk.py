@@ -100,6 +100,28 @@ async def test_atr_stop_calculation(tmp_db):
     assert not result.blocked
 
 
+async def test_atr_stop_calculation_short(tmp_db):
+    """For a sell/short order stops are mirrored: stop above entry, TP below."""
+    engine = RiskEngine("conservative")
+    result = await engine.compute_sizing(
+        conn=tmp_db,
+        equity=10000.0,
+        entry_price=100.0,
+        atr=2.5,
+        ai_confidence=0.80,
+        ai_position_pct=0.01,
+        open_positions_count=0,
+        daily_loss_pct=0.0,
+        side="sell",
+    )
+    # stop = entry + (ATR * multiplier) = 100 + (2.5 * 1.5) = 103.75
+    # tp   = entry - (ATR * multiplier * ratio) = 100 - (2.5 * 1.5 * 1.5) = 94.375
+    assert result.stop_price == 103.75
+    assert result.take_profit_price == round(100 - 2.5 * 1.5 * 1.5, 2)
+    assert result.take_profit_price < result.stop_price   # Alpaca requirement for sell bracket
+    assert not result.blocked
+
+
 # ── Daily loss limit ──────────────────────────────────────────────────────────
 
 def test_daily_loss_limit_halt():
