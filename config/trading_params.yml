@@ -1,7 +1,7 @@
 # Trading bot runtime parameters — hot-reloaded every 5s (no restart required)
 # Schema validated on load; invalid config reverts to previous values.
 
-risk_profile: conservative  # conservative | moderate | aggressive
+risk_profile: aggressive  # conservative | moderate | aggressive
 
 # News pipeline
 news:
