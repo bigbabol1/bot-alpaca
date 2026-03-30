@@ -7,6 +7,7 @@ services:
     volumes:
       - bot_data:/app/data    # SQLite persistence + .live_mode_confirmed gate
       - bot_logs:/app/logs    # Structured JSON logs
+      - ./config:/app/config  # Hot-reload: edit on NAS, bot picks up within 5s
     environment:
       # Ollama on the GPU machine — reachable from NAS via LAN
       - OLLAMA_HOST=http://192.168.0.66:11434
