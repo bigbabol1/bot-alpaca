@@ -31,7 +31,7 @@ log = structlog.get_logger(__name__)
 
 _FILL_POLL_INTERVAL = 10       # seconds between fill status polls (equity)
 _FILL_POLL_INTERVAL_CRYPTO = 1 # shorter first-poll for crypto (fills in <1s)
-_FILL_POLL_TIMEOUT = 60        # max seconds to wait for fill
+_FILL_POLL_TIMEOUT = 120       # max seconds to wait for fill (paper trading can be slow)
 _CRYPTO_MAX_POSITION_PCT = 0.005  # 0.5% of portfolio per crypto trade
 _CRYPTO_HARD_STOP_PCT = 0.01      # 1% hard stop loss for crypto
 
@@ -246,6 +246,7 @@ class TradeExecutor:
             try:
                 order = await self._alpaca.get_order(trade.alpaca_order_id)
                 status = str(order.status).lower()
+                log.debug("order_poll_status", ticker=trade.ticker, status=status)
 
                 if status == "filled":
                     fill_price = float(order.filled_avg_price or 0)
