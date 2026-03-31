@@ -109,6 +109,22 @@ class TradeExecutor:
             blocked=sizing.blocked,
             block_reason=sizing.block_reason,
         )
+        # Skip if Alpaca already holds an open position in this ticker.
+        # Bracket orders are entry-only — submitting one on top of an existing
+        # position is rejected with HTTP 422 "bracket orders must be entry orders".
+        try:
+            existing = await self._alpaca.get_all_positions()
+            held = {p.symbol for p in existing}
+            if ticker in held:
+                log.info(
+                    "executor_skipped_existing_position",
+                    ticker=ticker,
+                    reason="already holding position — bracket orders are entry-only",
+                )
+                return None
+        except Exception as exc:  # noqa: BLE001
+            log.warning("executor_position_check_failed", ticker=ticker, error=str(exc))
+            # Proceed — Alpaca will reject if needed
         try:
             order = await self._alpaca.submit_bracket_order(
                 ticker=ticker,
