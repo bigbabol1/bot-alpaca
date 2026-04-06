@@ -30,7 +30,7 @@ from src.utils.retry import async_retry
 
 log = structlog.get_logger(__name__)
 
-_OLLAMA_TIMEOUT = 30.0         # seconds per request
+_OLLAMA_TIMEOUT = 120.0        # seconds per request (32B models need up to ~90s)
 _CIRCUIT_RETRY_INTERVAL = 300  # 5 min health check when open
 _CIRCUIT_THRESHOLD = 3         # consecutive failures to open circuit
 _HEALTH_PATH = "/api/tags"
