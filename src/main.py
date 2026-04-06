@@ -187,16 +187,26 @@ class HotReloadWatcher:
         self._alert = alert_fn
         self._params = params
         self._last_mtime: float = 0.0
+        self._missing_logged: bool = False  # log file-missing error only once
 
     async def run(self) -> None:
         while True:
             await asyncio.sleep(5)
             try:
                 mtime = self._path.stat().st_mtime
+                self._missing_logged = False  # file is back — reset suppression
                 if mtime == self._last_mtime:
                     continue
                 self._last_mtime = mtime
                 await self._reload()
+            except FileNotFoundError:
+                if not self._missing_logged:
+                    log.warning(
+                        "hot_reload_config_missing",
+                        path=str(self._path),
+                        hint="mount the config/ directory or git pull on the NAS",
+                    )
+                    self._missing_logged = True
             except Exception as exc:  # noqa: BLE001
                 log.warning("hot_reload_stat_error", error=str(exc))
 
