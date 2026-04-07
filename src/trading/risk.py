@@ -154,8 +154,10 @@ class RiskEngine:
             raw_pct = self._kelly_size(ai_confidence, b)
             method = "kelly"
         else:
-            raw_pct = 0.01   # fixed 1% fallback
-            method = "fixed"
+            # Bootstrap: use AI's conviction-based size (floored at 1%).
+            # ai_position_pct comes from the LLM and reflects news magnitude.
+            raw_pct = max(ai_position_pct, 0.01) if ai_position_pct > 0.001 else 0.01
+            method = "ai_guided_bootstrap"
 
         # Apply profile cap (never exceed profile max)
         position_pct = min(raw_pct, p.max_position_pct)

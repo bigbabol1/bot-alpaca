@@ -456,6 +456,9 @@ async def process_news_loop(
             risk_profile=profile.name,
         )
 
+        # Refresh equity snapshot after each trade so daily P&L stays current
+        await _snap_portfolio(alpaca, conn, prev_equity=prev_equity)
+
 
 # ── Health check endpoint ──────────────────────────────────────────────────────
 
@@ -602,12 +605,14 @@ async def main() -> None:
     # ── Startup reconciliation ─────────────────────────────────────────────────
     await executor.reconcile_open_orders()
 
-    # ── Seed opening equity for day-1 daily loss calculation ───────────────────
-    # If no snapshot exists yet, take one now so prev_equity is never 0.
+    # ── Seed opening equity for today's daily P&L baseline ────────────────────
+    # Always take a snapshot on startup so daily_pnl reflects change since
+    # last known state. On first-ever run prev_equity=0 → daily_pnl=0 (correct).
+    # On restart, prev_equity = last stored equity, capturing intra-day moves.
     existing_snap = await db_ops.get_latest_snapshot(conn)
-    if not existing_snap:
-        await _snap_portfolio(alpaca, conn, prev_equity=0.0)
-        log.info("startup_equity_snapshot_taken")
+    startup_prev_equity = existing_snap.equity if existing_snap else 0.0
+    await _snap_portfolio(alpaca, conn, prev_equity=startup_prev_equity)
+    log.info("startup_equity_snapshot_taken", prev_equity=startup_prev_equity)
 
     # ── Queues ─────────────────────────────────────────────────────────────────
     news_queue: asyncio.Queue = asyncio.Queue(maxsize=200)
